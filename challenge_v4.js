@@ -778,29 +778,56 @@
 
         // Генерируем случайную страницу (1-500)
         var page = Math.floor(Math.random() * 500) + 1;
-        var url = Lampa.TMDB.api('discover/movie?language=ru&sort_by=popularity.desc&include_adult=false&vote_count.gte=100&page=' + page);
 
-        var req = new Lampa.Reguest();
-        req.timeout(10000);
-        req.silent(
+        // Используем более надежный метод запроса через Lampa.TMDB
+        var params = {
+            language: 'ru',
+            sort_by: 'popularity.desc',
+            include_adult: false,
+            'vote_count.gte': 100,
+            page: page
+        };
+
+        var url = Lampa.TMDB.api('discover/movie?' + $.param(params));
+
+        // Используем network.native (если доступен) или $.ajax как запасной вариант
+        var network = new Lampa.Reguest();
+
+        network.silent(
             url,
             function (data) {
                 Lampa.Loading.stop();
                 if (data.results && data.results.length) {
                     var randomMovie = data.results[Math.floor(Math.random() * data.results.length)];
 
-                    // Приводим к формату карточки Lampa
                     randomMovie.source = 'tmdb';
                     if (!randomMovie.poster_path) randomMovie.img = '';
 
                     callback(randomMovie);
                 } else {
-                    Lampa.Noty.show('Не удалось найти фильм');
+                    Lampa.Noty.show('Ничего не найдено');
                 }
             },
-            function () {
+            function (a, c) {
                 Lampa.Loading.stop();
-                Lampa.Noty.show('Ошибка сети');
+                // Пробуем запасной вариант если Reguest не сработал
+                $.ajax({
+                    url: url,
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.results && data.results.length) {
+                            var randomMovie = data.results[Math.floor(Math.random() * data.results.length)];
+                            randomMovie.source = 'tmdb';
+                            if (!randomMovie.poster_path) randomMovie.img = '';
+                            callback(randomMovie);
+                        } else {
+                            Lampa.Noty.show('Ничего не найдено (ajax)');
+                        }
+                    },
+                    error: function () {
+                        Lampa.Noty.show('Ошибка сети: ' + url);
+                    }
+                });
             }
         );
     }
@@ -1019,24 +1046,26 @@
     }
 
     function createSettingsComponent() {
-        // Кнопка показа PIN
-        if (isSynced()) {
-            Lampa.SettingsApi.addParam({
-                component: 'challenge365',
-                param: {
-                    name: 'challenge365_show_pin',
-                    type: 'button',
-                    default: ''
-                },
-                field: {
-                    name: '🔑 Показать мой PIN',
-                    description: 'Показать код для подключения других устройств'
-                },
-                onChange: function () {
+        // Кнопка показа PIN (всегда видна, если не подключено - предлагает подключиться)
+        Lampa.SettingsApi.addParam({
+            component: 'challenge365',
+            param: {
+                name: 'challenge365_show_pin',
+                type: 'button',
+                default: ''
+            },
+            field: {
+                name: '🔑 Показать мой PIN',
+                description: isSynced() ? 'Код для подключения других устройств' : 'Нажмите, чтобы создать или ввести PIN'
+            },
+            onChange: function () {
+                if (isSynced()) {
                     showCurrentPinModal();
+                } else {
+                    showPinModal();
                 }
-            });
-        }
+            }
+        });
 
         // Кнопка подключения/отключения
         Lampa.SettingsApi.addParam({

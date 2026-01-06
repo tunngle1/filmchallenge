@@ -737,6 +737,32 @@
         return movies[randomIndex];
     }
 
+    function getRandomGlobal(callback) {
+        Lampa.Loading.start();
+
+        // Генерируем случайную страницу (1-500)
+        var page = Math.floor(Math.random() * 500) + 1;
+        var url = Lampa.TMDB.api('discover/movie?language=ru&sort_by=popularity.desc&include_adult=false&vote_count.gte=100&page=' + page);
+
+        $.get(url, function (data) {
+            Lampa.Loading.stop();
+            if (data.results && data.results.length) {
+                var randomMovie = data.results[Math.floor(Math.random() * data.results.length)];
+
+                // Приводим к формату карточки Lampa
+                randomMovie.source = 'tmdb';
+                if (!randomMovie.poster_path) randomMovie.img = '';
+
+                callback(randomMovie);
+            } else {
+                Lampa.Noty.show('Не удалось найти фильм');
+            }
+        }).fail(function () {
+            Lampa.Loading.stop();
+            Lampa.Noty.show('Ошибка сети');
+        });
+    }
+
     // ========================================
     // ПОИСК ФИЛЬМОВ (через TMDB/Lampa)
     // ========================================
@@ -951,6 +977,25 @@
     }
 
     function createSettingsComponent() {
+        // Кнопка показа PIN
+        if (isSynced()) {
+            Lampa.SettingsApi.addParam({
+                component: 'challenge365',
+                param: {
+                    name: 'challenge365_show_pin',
+                    type: 'button',
+                    default: ''
+                },
+                field: {
+                    name: '🔑 Показать мой PIN',
+                    description: 'Показать код для подключения других устройств'
+                },
+                onChange: function () {
+                    showPinModal();
+                }
+            });
+        }
+
         // Кнопка подключения/отключения
         Lampa.SettingsApi.addParam({
             component: 'challenge365',
@@ -960,8 +1005,8 @@
                 default: ''
             },
             field: {
-                name: isSynced() ? '✅ Подключено (PIN: ' + PluginData.pin + ')' : '🔗 Подключить синхронизацию',
-                description: isSynced() ? 'Нажмите чтобы отключиться' : 'Создать PIN или ввести существующий'
+                name: isSynced() ? '❌ Отключить синхронизацию' : '🔗 Подключить синхронизацию',
+                description: isSynced() ? 'Текущий PIN: ' + PluginData.pin : 'Создать PIN или ввести существующий'
             },
             onChange: function () {
                 if (isSynced()) {
@@ -999,7 +1044,7 @@
             }
         });
 
-        // Случайный фильм из закладок
+        // Случайный фильм
         Lampa.SettingsApi.addParam({
             component: 'challenge365',
             param: {
@@ -1008,23 +1053,46 @@
                 default: ''
             },
             field: {
-                name: '🎲 Случайный из закладок',
-                description: 'Выбрать случайный фильм из закладок Lampa'
+                name: '🎲 Случайный фильм',
+                description: 'Из закладок или глобального поиска'
             },
             onChange: function () {
-                var movie = getRandomFromLampa();
-                if (movie) {
-                    Lampa.Activity.push({
-                        url: '',
-                        title: 'Случайный фильм',
-                        component: 'full',
-                        id: movie.id,
-                        method: movie.method || 'movie',
-                        card: movie
-                    });
-                }
+                Lampa.Select.show({
+                    title: 'Откуда выбрать случайный фильм?',
+                    items: [
+                        { title: '📑 Из моих закладок', action: 'bookmarks' },
+                        { title: '🌍 Из всего каталога (глобально)', action: 'global' },
+                        { title: '↩️ Отмена', action: 'cancel' }
+                    ],
+                    onSelect: function (item) {
+                        if (item.action === 'bookmarks') {
+                            var movie = getRandomFromLampa();
+                            if (movie) {
+                                openMovie(movie);
+                            }
+                        } else if (item.action === 'global') {
+                            getRandomGlobal(function (movie) {
+                                openMovie(movie);
+                            });
+                        }
+                    },
+                    onBack: function () {
+                        Lampa.Controller.toggle('settings_component');
+                    }
+                });
             }
         });
+
+        function openMovie(movie) {
+            Lampa.Activity.push({
+                url: '',
+                title: 'Случайный фильм',
+                component: 'full',
+                id: movie.id,
+                method: movie.method || 'movie',
+                card: movie
+            });
+        }
 
         // Статистика
         Lampa.SettingsApi.addParam({

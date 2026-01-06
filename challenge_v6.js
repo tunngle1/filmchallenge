@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-Lampa.Noty.show('🚀 Challenge V5 Loaded!');
+    Lampa.Noty.show('🚀 V5 Успешно загружен!');
     // ========================================
     // 365 CHALLENGE - Плагин для челленджа 365 фильмов
     // Синхронизация через Firebase
@@ -1046,7 +1046,14 @@ Lampa.Noty.show('🚀 Challenge V5 Loaded!');
     }
 
     function createSettingsComponent() {
-        // Кнопка показа PIN (всегда видна, если не подключено - предлагает подключиться)
+        // 1. Создаем раздел настроек (ОБЯЗАТЕЛЬНО)
+        Lampa.SettingsApi.addComponent({
+            component: 'challenge365',
+            name: '365 Challenge',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>'
+        });
+
+        // 2. Кнопка показа PIN
         Lampa.SettingsApi.addParam({
             component: 'challenge365',
             param: {
@@ -1056,7 +1063,7 @@ Lampa.Noty.show('🚀 Challenge V5 Loaded!');
             },
             field: {
                 name: '🔑 Показать мой PIN',
-                description: isSynced() ? 'Код для подключения других устройств' : 'Нажмите, чтобы создать или ввести PIN'
+                description: isSynced() ? 'Код для подключения' : 'Нажмите для создания PIN'
             },
             onChange: function () {
                 if (isSynced()) {

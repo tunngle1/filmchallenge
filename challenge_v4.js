@@ -173,6 +173,42 @@
         Lampa.Controller.toggle('modal');
     }
 
+    function showCurrentPinModal() {
+        var html = $('<div class="challenge365-pin-modal"></div>');
+
+        html.append('<div class="challenge365-pin-title">Ваш PIN</div>');
+        html.append('<div class="challenge365-pin-code">' + PluginData.pin + '</div>');
+        html.append('<div class="challenge365-pin-hint">Используйте этот код для подключения других устройств</div>');
+        html.append('<div class="challenge365-pin-btn ok selector">OK</div>');
+
+        Lampa.Modal.open({
+            title: '',
+            html: html,
+            onBack: function () {
+                Lampa.Modal.close();
+                Lampa.Controller.toggle('settings_component');
+            }
+        });
+
+        html.find('.ok').on('hover:enter', function () {
+            Lampa.Modal.close();
+            Lampa.Controller.toggle('settings_component');
+        });
+
+        Lampa.Controller.add('modal', {
+            toggle: function () {
+                Lampa.Controller.collectionSet(html);
+                Lampa.Controller.collectionFocus(false, html);
+            },
+            back: function () {
+                Lampa.Modal.close();
+                Lampa.Controller.toggle('settings_component');
+            }
+        });
+
+        Lampa.Controller.toggle('modal');
+    }
+
     function createNewPin() {
         initFirebase(function (success) {
             if (!success) {
@@ -744,23 +780,29 @@
         var page = Math.floor(Math.random() * 500) + 1;
         var url = Lampa.TMDB.api('discover/movie?language=ru&sort_by=popularity.desc&include_adult=false&vote_count.gte=100&page=' + page);
 
-        $.get(url, function (data) {
-            Lampa.Loading.stop();
-            if (data.results && data.results.length) {
-                var randomMovie = data.results[Math.floor(Math.random() * data.results.length)];
+        var req = new Lampa.Reguest();
+        req.timeout(10000);
+        req.silent(
+            url,
+            function (data) {
+                Lampa.Loading.stop();
+                if (data.results && data.results.length) {
+                    var randomMovie = data.results[Math.floor(Math.random() * data.results.length)];
 
-                // Приводим к формату карточки Lampa
-                randomMovie.source = 'tmdb';
-                if (!randomMovie.poster_path) randomMovie.img = '';
+                    // Приводим к формату карточки Lampa
+                    randomMovie.source = 'tmdb';
+                    if (!randomMovie.poster_path) randomMovie.img = '';
 
-                callback(randomMovie);
-            } else {
-                Lampa.Noty.show('Не удалось найти фильм');
+                    callback(randomMovie);
+                } else {
+                    Lampa.Noty.show('Не удалось найти фильм');
+                }
+            },
+            function () {
+                Lampa.Loading.stop();
+                Lampa.Noty.show('Ошибка сети');
             }
-        }).fail(function () {
-            Lampa.Loading.stop();
-            Lampa.Noty.show('Ошибка сети');
-        });
+        );
     }
 
     // ========================================
@@ -991,7 +1033,7 @@
                     description: 'Показать код для подключения других устройств'
                 },
                 onChange: function () {
-                    showPinModal();
+                    showCurrentPinModal();
                 }
             });
         }

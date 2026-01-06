@@ -441,20 +441,42 @@
             return;
         }
 
+        // Логируем что приходит
+        log('Movie object:', JSON.stringify({
+            id: movie.id,
+            title: movie.title,
+            name: movie.name,
+            year: movie.year,
+            release_date: movie.release_date,
+            poster: movie.poster,
+            img: movie.img,
+            poster_path: movie.poster_path
+        }));
+
+        // Формируем постер
+        var posterUrl = '';
+        if (movie.poster) {
+            posterUrl = movie.poster;
+        } else if (movie.img) {
+            posterUrl = movie.img;
+        } else if (movie.poster_path) {
+            posterUrl = Lampa.TMDB.image('w200' + movie.poster_path);
+        }
+
         // Передаём все данные о фильме из Lampa
         var movieData = {
             id: movie.id,
             tmdb_id: movie.id,
-            title: movie.title || movie.name,
+            title: movie.title || movie.name || 'Неизвестный фильм',
             year: movie.year || (movie.release_date ? movie.release_date.substring(0, 4) : ''),
-            poster: movie.poster || movie.img || (movie.poster_path ? Lampa.TMDB.image('w200' + movie.poster_path) : ''),
+            poster: posterUrl,
             watched_at: watchedAt || new Date().toISOString(),
             rating: movie.rating || null,
             comment: movie.comment || null
         };
 
         var dateInfo = watchedAt ? ' (' + formatDate(new Date(watchedAt)) + ')' : '';
-        log('Marking as watched:', movieData.title, dateInfo);
+        log('Saving movie data:', JSON.stringify(movieData));
 
         syncMovieToFirebase(movieData, function (success) {
             if (success) {
@@ -463,6 +485,7 @@
             if (callback) callback(success);
         });
     }
+
 
     function removeFromHistory(movie, callback) {
         if (!isSynced()) {

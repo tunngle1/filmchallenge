@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-
+Lampa.Noty.show('🚀 Challenge V5 Loaded!');
     // ========================================
     // 365 CHALLENGE - Плагин для челленджа 365 фильмов
     // Синхронизация через Firebase

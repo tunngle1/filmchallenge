@@ -1410,7 +1410,6 @@
             }
 
             var pending = movieIds.length;
-            var network = new Lampa.Reguest();
 
             function done() {
                 pending--;
@@ -1423,16 +1422,17 @@
                 }
             }
 
-            movieIds.forEach(function (id) {
+            function fetchMovie(id) {
                 var movieData = PluginData.movies[id];
                 var tmdbId = movieData.tmdb_id || id;
 
                 // Получаем данные о фильме через Lampa API
                 var url = Lampa.TMDB.api('movie/' + tmdbId + '?language=ru');
 
-                network.clear();
-                network.timeout(10000);
-                network.silent(
+                // Создаём отдельный Reguest для каждого запроса
+                var req = new Lampa.Reguest();
+                req.timeout(10000);
+                req.silent(
                     url,
                     function (data) {
                         if (data) {
@@ -1463,9 +1463,14 @@
                         done();
                     }
                 );
+            }
+
+            movieIds.forEach(function (id) {
+                fetchMovie(id);
             });
         });
     }
+
 
     // ========================================
     // ИНИЦИАЛИЗАЦИЯ

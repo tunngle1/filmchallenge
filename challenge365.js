@@ -354,8 +354,13 @@
         }
 
         var movieId = String(movie.id || movie.tmdb_id);
+
+        // Сохраняем все данные о фильме из Lampa
         var movieData = {
             tmdb_id: parseInt(movieId),
+            title: movie.title || movie.name || 'Неизвестный фильм',
+            year: movie.year || (movie.release_date ? movie.release_date.substring(0, 4) : ''),
+            poster: movie.poster || movie.img || (movie.poster_path ? Lampa.TMDB.image('w200' + movie.poster_path) : ''),
             watched_at: movie.watched_at || new Date().toISOString(),
             rating: movie.rating || null,
             comment: movie.comment || null
@@ -367,7 +372,7 @@
                 updateWatchedCount();
                 saveData();
 
-                log('Saved to Firebase:', movieId);
+                log('Saved to Firebase:', movieId, movieData.title);
                 if (callback) callback(true);
             })
             .catch(function (error) {
@@ -436,20 +441,24 @@
             return;
         }
 
+        // Передаём все данные о фильме из Lampa
         var movieData = {
             id: movie.id,
             tmdb_id: movie.id,
+            title: movie.title || movie.name,
+            year: movie.year || (movie.release_date ? movie.release_date.substring(0, 4) : ''),
+            poster: movie.poster || movie.img || (movie.poster_path ? Lampa.TMDB.image('w200' + movie.poster_path) : ''),
             watched_at: watchedAt || new Date().toISOString(),
-            rating: null,
-            comment: null
+            rating: movie.rating || null,
+            comment: movie.comment || null
         };
 
         var dateInfo = watchedAt ? ' (' + formatDate(new Date(watchedAt)) + ')' : '';
-        log('Marking as watched:', movie.title || movie.name, dateInfo);
+        log('Marking as watched:', movieData.title, dateInfo);
 
         syncMovieToFirebase(movieData, function (success) {
             if (success) {
-                Lampa.Noty.show('✓ ' + (movie.title || movie.name) + ' добавлен!' + dateInfo);
+                Lampa.Noty.show('✓ ' + movieData.title + ' добавлен!' + dateInfo);
             }
             if (callback) callback(success);
         });
@@ -1399,7 +1408,7 @@
             return;
         }
 
-        // Сначала синхронизируем данные
+        // Синхронизируем данные из Firebase
         syncFromFirebase(function () {
             var movies = [];
             var movieIds = Object.keys(PluginData.movies);
@@ -1409,67 +1418,29 @@
                 return;
             }
 
-            var pending = movieIds.length;
-
-            function done() {
-                pending--;
-                if (pending <= 0) {
-                    // Сортируем по дате просмотра
-                    movies.sort(function (a, b) {
-                        return new Date(b.watched_at) - new Date(a.watched_at);
-                    });
-                    callback(movies);
-                }
-            }
-
-            function fetchMovie(id) {
-                var movieData = PluginData.movies[id];
-                var tmdbId = movieData.tmdb_id || id;
-
-                // Получаем данные о фильме через Lampa API
-                var url = Lampa.TMDB.api('movie/' + tmdbId + '?language=ru');
-
-                // Создаём отдельный Reguest для каждого запроса
-                var req = new Lampa.Reguest();
-                req.timeout(10000);
-                req.silent(
-                    url,
-                    function (data) {
-                        if (data) {
-                            movies.push({
-                                tmdb_id: parseInt(tmdbId),
-                                title: data.title || 'Неизвестный фильм',
-                                year: data.release_date ? data.release_date.substring(0, 4) : '',
-                                poster: data.poster_path ? Lampa.TMDB.image('w200' + data.poster_path) : '',
-                                watched_at: movieData.watched_at,
-                                rating: movieData.rating,
-                                comment: movieData.comment
-                            });
-                        }
-                        done();
-                    },
-                    function (error) {
-                        // Если не удалось получить данные, добавляем с минимальной информацией
-                        log('Error fetching movie ' + tmdbId, error);
-                        movies.push({
-                            tmdb_id: parseInt(tmdbId),
-                            title: 'Фильм #' + tmdbId,
-                            year: '',
-                            poster: '',
-                            watched_at: movieData.watched_at,
-                            rating: movieData.rating,
-                            comment: movieData.comment
-                        });
-                        done();
-                    }
-                );
-            }
-
+            // Данные уже есть в Firebase — просто используем их
             movieIds.forEach(function (id) {
-                fetchMovie(id);
+                var movieData = PluginData.movies[id];
+                movies.push({
+                    tmdb_id: movieData.tmdb_id || parseInt(id),
+                    title: movieData.title || 'Фильм #' + id,
+                    year: movieData.year || '',
+                    poster: movieData.poster || '',
+                    watched_at: movieData.watched_at,
+                    rating: movieData.rating,
+                    comment: movieData.comment
+                });
             });
+
+            // Сортируем по дате просмотра (новые сверху)
+            movies.sort(function (a, b) {
+                return new Date(b.watched_at) - new Date(a.watched_at);
+            });
+
+            callback(movies);
         });
     }
+
 
 
     // ========================================

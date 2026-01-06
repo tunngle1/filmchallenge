@@ -1410,6 +1410,7 @@
             }
 
             var pending = movieIds.length;
+            var network = new Lampa.Reguest();
 
             function done() {
                 pending--;
@@ -1426,35 +1427,42 @@
                 var movieData = PluginData.movies[id];
                 var tmdbId = movieData.tmdb_id || id;
 
-                // Получаем данные о фильме через TMDB
+                // Получаем данные о фильме через Lampa API
                 var url = Lampa.TMDB.api('movie/' + tmdbId + '?language=ru');
 
-                $.get(url, function (data) {
-                    if (data) {
+                network.clear();
+                network.timeout(10000);
+                network.silent(
+                    url,
+                    function (data) {
+                        if (data) {
+                            movies.push({
+                                tmdb_id: parseInt(tmdbId),
+                                title: data.title || 'Неизвестный фильм',
+                                year: data.release_date ? data.release_date.substring(0, 4) : '',
+                                poster: data.poster_path ? Lampa.TMDB.image('w200' + data.poster_path) : '',
+                                watched_at: movieData.watched_at,
+                                rating: movieData.rating,
+                                comment: movieData.comment
+                            });
+                        }
+                        done();
+                    },
+                    function (error) {
+                        // Если не удалось получить данные, добавляем с минимальной информацией
+                        log('Error fetching movie ' + tmdbId, error);
                         movies.push({
-                            tmdb_id: tmdbId,
-                            title: data.title || 'Неизвестный фильм',
-                            year: data.release_date ? data.release_date.substring(0, 4) : '',
-                            poster: data.poster_path ? Lampa.TMDB.image('w200' + data.poster_path) : '',
+                            tmdb_id: parseInt(tmdbId),
+                            title: 'Фильм #' + tmdbId,
+                            year: '',
+                            poster: '',
                             watched_at: movieData.watched_at,
                             rating: movieData.rating,
                             comment: movieData.comment
                         });
+                        done();
                     }
-                    done();
-                }).fail(function () {
-                    // Если не удалось получить данные, добавляем с минимальной информацией
-                    movies.push({
-                        tmdb_id: tmdbId,
-                        title: 'Фильм #' + tmdbId,
-                        year: '',
-                        poster: '',
-                        watched_at: movieData.watched_at,
-                        rating: movieData.rating,
-                        comment: movieData.comment
-                    });
-                    done();
-                });
+                );
             });
         });
     }
@@ -1529,3 +1537,4 @@
     }
 
 })();
+
